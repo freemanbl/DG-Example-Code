@@ -18,44 +18,42 @@ public class base_Arena_Behaviour : MonoBehaviour
     private int curWave;
     private int howManyWaves;
     private bool spawning;
-    // Start is called before the first frame update
+
     void Start()
     {
         curWave = 1;
         dungeonInfo = dungeonGen_V2.instance;
-        //enemyTypes = dungeonInfo.currentDungeonType.enemySpawns;
     }
 
     // Update is called once per frame
     void Update()
     {
-        if(completed == false)
-        {
-            if (inProgress == true)
-            {
-                for (int i = 0; i < enemyWave.Count; i++)
-                {
-                    if (enemyWave[i] == null)
-                    {
-                        enemyWave.RemoveAt(i);
-                    }
-                }
-                if (enemyWave.Count == 0 && spawning == false)
-                {
-                    if (curWave <= howManyWaves && spawning == false)
-                    {
-                        Debug.Log("Wave completed " + curWave);
-                        StartCoroutine(spawnEnemyWave(3));
-                    }
-                    else if (curWave > howManyWaves)
-                    {
-                        Debug.Log("Arena completed");
-                        endArenaEncounter();
-                    }
 
+        if (inProgress == true)
+        {
+            for (int i = 0; i < enemyWave.Count; i++)
+            {
+                if (enemyWave[i] == null)
+                {
+                    enemyWave.RemoveAt(i); //get rid of dead enemies
                 }
             }
+            if (enemyWave.Count == 0 && spawning == false)
+            {
+                if (curWave <= howManyWaves && spawning == false)
+                {
+                    Debug.Log("Wave completed " + curWave);
+                    StartCoroutine(spawnEnemyWave(3));
+                }
+                else if (curWave > howManyWaves)
+                {
+                    Debug.Log("Arena completed");
+                    endArenaEncounter();
+                }
+
+            }
         }
+
         
     }
     public IEnumerator spawnEnemyWave(int waitTime)
@@ -110,9 +108,9 @@ public class base_Arena_Behaviour : MonoBehaviour
         StartCoroutine(showHeaderUI(2f, "ARENA COMPLETED"));
         doorSlamScreenShakeEffect();
     }
-    public void onPlayerEnter() //triggered in arenadoor script by ontriggerenter
+    public void onPlayerEnter() //triggered in arenadoor script via ontriggerenter
     {
-        if(completed == false)
+        if(completed == false && inProgress == false) //dont retrigger
         {
             Debug.Log("player entered arena");
             howManyWaves = Random.Range(2, 5);

@@ -62,6 +62,7 @@ public class playerStats : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        //---testing buttons
         if (Input.GetKeyDown(KeyCode.L))
         {
             exp += 50;
@@ -70,14 +71,7 @@ public class playerStats : MonoBehaviour
         {
             takeDamage(1);
         }
-        //CLAMPS
-        attackSpeed = Mathf.Clamp(attackSpeed, 1, 100);
-        recoilModifier = Mathf.Clamp(recoilModifier, 0.05f, 1f);
-        health = Mathf.Clamp(health, 0, maxHealth);
-        healthRecCap = Mathf.Clamp(healthRecCap, 0, maxHealth + 25);
-        healthRecTimer = Mathf.Clamp(healthRecTimer, 0, 5);
-        attackDmgBonus = Mathf.Clamp(attackDmgBonus, 0.1f, 10f);
-        attackSpeed = Mathf.Clamp(attackSpeed, 1, 20);
+        
         //----Level up and exp overflow
         if (exp >= lvlReq.levelList[level - 1]) //the amount of exp needed for the next level
         {
@@ -85,7 +79,7 @@ public class playerStats : MonoBehaviour
             exp = expOverflow;
             levelUp();
         }
-        //Check if dead
+        //----dead?
         if (health == 0)
         {
             if(alive == true)
@@ -129,19 +123,23 @@ public class playerStats : MonoBehaviour
             health += 1;
             healthRecActiveTickTime = 0;
         }
+        //CLAMPS
+        attackSpeed = Mathf.Clamp(attackSpeed, 1, 100);
+        recoilModifier = Mathf.Clamp(recoilModifier, 0.05f, 1f);
+        health = Mathf.Clamp(health, 0, maxHealth);
+        healthRecCap = Mathf.Clamp(healthRecCap, 0, maxHealth + 25);
+        healthRecTimer = Mathf.Clamp(healthRecTimer, 0, 5);
+        attackDmgBonus = Mathf.Clamp(attackDmgBonus, 0.1f, 10f);
+        attackSpeed = Mathf.Clamp(attackSpeed, 1, 20);
     }
     public void updateBonusStats() //called when item is picked up
     {
-        float healthPercentage = health / maxHealth; //so we can apply the same percentage
         maxHealth = Mathf.RoundToInt((100 + 5 * (level - 1)) * item_exchangeCard.HealthMod) + healthBonus;
-        Debug.Log("hmod = " + item_exchangeCard.HealthMod);
-        //health = Mathf.RoundToInt(maxHealth * healthPercentage); //keep same percentage of health
-
-        //INCREASE BASE DAMAGE -- NOT IN USE
+        //Debug.Log("hmod = " + item_exchangeCard.HealthMod);
         int baseDmgForLvl = Mathf.RoundToInt(startAttackDmg + (2 * (level - 1)));
-        Debug.Log("damage is " + startAttackDmg + (2 * (level - 1)) + " * " + attackDmgBonus);
+        //Debug.Log("damage is " + startAttackDmg + (2 * (level - 1)) + " * " + attackDmgBonus);
         attackDmg = Mathf.RoundToInt((baseDmgForLvl * attackDmgBonus) * item_exchangeCard.DmgMod);
-        attackSpeed = startAttackSpeed + attackSpeedBonus; //might make this increase with level later, not sure right now
+        attackSpeed = startAttackSpeed + attackSpeedBonus;
         critMulti = startCritMulti + critMultiBonus;
     }
     public void takeDamage(int dmgTaken)
@@ -149,9 +147,9 @@ public class playerStats : MonoBehaviour
         if(alive == true)
         {
             health -= calcDmgTaken(dmgTaken); //calc with item effects
-            this.BroadcastMessage("onHitPlayer");
+            this.BroadcastMessage("onHitPlayer"); //triggers all items. if triggers, chance etc handled on item end
             screenShakeCtrl.instance.StartCoroutine(screenShakeCtrl.instance.screenShake(0.1f, 0.2f, 0.2f));
-            hitHurtSoundPlayer.playSound();
+            hitHurtSoundPlayer.playSound(); //oof
             //reset regen timer
             healthRecTimer = 0;
             healthRecActiveTickTime = 0;
@@ -164,20 +162,20 @@ public class playerStats : MonoBehaviour
     }
     private int calcDmgTaken(int d)
     {
-        float cushionModifier = item_cushion.instance.active == true ? item_cushion.instance.Trigger() : 1;//will return 1 if doesn't land roll
+        float cushionModifier = item_cushion.instance.active == true ? item_cushion.instance.Trigger() : 1;//will return 1 if doesn't succeed roll
         float modifier = cushionModifier;
         //Debug.Log(modifier);
         return Mathf.RoundToInt(d * modifier);
     }
     public IEnumerator playerDeath()
     {
-        Debug.Log("at playerDeath health is " + health);
+        //Debug.Log("at playerDeath health is " + health);
         alive = false;
         playerInfoParentUI.SetActive(false);
         deathSoundPlayer.playSound();
         cameraAnim.enabled = true;
         cameraAnim.SetTrigger("playerDeath");
-        yield return new WaitForSeconds(2);
+        yield return new WaitForSeconds(2); //give time for anim
         deathScreenAnim.SetTrigger("playerDeath");
 
     }
@@ -186,6 +184,6 @@ public class playerStats : MonoBehaviour
         level++;
         updateBonusStats();
         lvlUpUI.SetActive(true);
-        levelUpItemSequence.levelsToGo++;
+        levelUpItemSequence.levelsToGo++; //queue another item choice
     }
 }

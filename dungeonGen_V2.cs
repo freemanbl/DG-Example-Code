@@ -9,13 +9,12 @@ public class dungeonGen_V2 : MonoBehaviour
     public static dungeonGen_V2 instance;
     public GameObject headerUI;
     public FPScharacterCtrl characterCtrl;
-    public bool levelLoading;
-    public bool infiniteMode = false;
-    public bool drawGrid;
-    public bool drawRoomPlacement;
-    public int cellSize;
-    public int cellPadding;
+    public bool levelLoading, infiniteMode = false, drawGrid, drawRoomPlacement;
+    public int cellSize, cellPadding;
     public Dungeon dungeonProperties;
+    public int floorNum;
+    [HideInInspector]
+    public int step = 0;
     public NavMeshSurface navSurface;
     private Cell[,] cells;
     private Cell startCell, endCell;
@@ -23,20 +22,17 @@ public class dungeonGen_V2 : MonoBehaviour
 
     public dungeonType currentDungeonType; //library of room, arena, wall and enemy types
     [HideInInspector] public dungeonRoom startRoom, endRoom;
-    public List<dungeonRoom> rooms = new List<dungeonRoom>();
-    public List<dungeonRoom> arenaPlacements = new List<dungeonRoom>();
-    private List<Cell> cellPath = new List<Cell>();
-    public List<dungeonRoom> activeRooms = new List<dungeonRoom>();
-    public List<dungeonRoom> activeArenas = new List<dungeonRoom>(); //0 is connected to start cell, 1 is connected to end cell
-    public List<GameObject> activeWalls;
-
-    public List<enemySpawnPoint> activeSpawnPoints;
-    public enemySpawnPoint[] spawnPoints;
-    public List<GameObject> enemiesAlive;
-    [SerializeField] private string dungeonSize;
-    public int floorNum;
-    [HideInInspector]
-    public int step = 0;
+    #region storage
+    [HideInInspector]public List<dungeonRoom> rooms = new List<dungeonRoom>();
+    [HideInInspector]public List<dungeonRoom> activeRooms = new List<dungeonRoom>();
+    [HideInInspector]public List<dungeonRoom> arenaPlacements = new List<dungeonRoom>();
+    [HideInInspector]public List<dungeonRoom> activeArenas = new List<dungeonRoom>(); //0 is connected to start cell, 1 is connected to end cell
+    [HideInInspector]public List<Cell> cellPath = new List<Cell>();
+    [HideInInspector]public List<GameObject> activeWalls;
+    [HideInInspector]public enemySpawnPoint[] spawnPoints;
+    [HideInInspector]public List<enemySpawnPoint> activeSpawnPoints;
+    [HideInInspector]public List<GameObject> enemiesAlive;
+    #endregion
 
     public void Awake()
     {
@@ -87,10 +83,8 @@ public class dungeonGen_V2 : MonoBehaviour
                 }
                 cells = n_cells;
                 cellsCreated = true;
-                //startCell = n_cells[Random.Range(cellPadding + 1, d.sizeX - cellPadding - 1), Random.Range(cellPadding + 1, d.sizeY - cellPadding - 1)]; //edge padding
                 startCell = n_cells[Mathf.RoundToInt(dungeonProperties.sizeX / 2) + Random.Range(-5, 5), cellPadding + 1];
                 endCell = n_cells[Mathf.RoundToInt(dungeonProperties.sizeX / 2) + Random.Range(-5, 5), dungeonProperties.sizeY - (cellPadding + 1)];
-                //endCell = getEndCell(startCell, 20); //use a function to make sure the end cell isn't the same or too close to the start
                 step++;
                 generate(d);
                 break;
@@ -100,6 +94,7 @@ public class dungeonGen_V2 : MonoBehaviour
                     Vector2Int cellIndex = new Vector2Int(Random.Range(cellPadding + 1, dungeonProperties.sizeX - cellPadding * 2), Random.Range(cellPadding + 1, dungeonProperties.sizeY - cellPadding * 2));
                     dungeonRoom arenaRoom = currentDungeonType.arenas[Random.Range(0, currentDungeonType.arenas.Count)];
                     dungeonRoom n_arenaRoom = new dungeonRoom();
+                    //copyRoomData(n_arenaRoom, arenaRoom, cellIndex.x, cellIndex.y); //copy room info to protect original
                     n_arenaRoom.tag = arenaRoom.tag; n_arenaRoom.roomSize = arenaRoom.roomSize; n_arenaRoom.roomPrefab = arenaRoom.roomPrefab; n_arenaRoom.entryPoints = new List<Vector3Int>(arenaRoom.entryPoints); n_arenaRoom.type = arenaRoom.type;
                     while (checkArenaPlacement(n_arenaRoom, cellIndex.x, cellIndex.y) == false)
                     {
@@ -107,6 +102,7 @@ public class dungeonGen_V2 : MonoBehaviour
                         cellIndex = new Vector2Int(Random.Range(cellPadding + 1, dungeonProperties.sizeX - (cellPadding * 2)), Random.Range(cellPadding + 1, dungeonProperties.sizeY - (cellPadding * 2)));
                     }
                     Cell originCell = cells[cellIndex.x, cellIndex.y];
+                    //overwrite roompos with new pos
                     n_arenaRoom.roomCellCoord = new Vector2Int(cellIndex.x, cellIndex.y);
                     n_arenaRoom.roomPos = new Vector3Int(Mathf.RoundToInt(originCell.cellPos.x), 0, Mathf.RoundToInt(originCell.cellPos.z));
                     occupyRoomPlacement(n_arenaRoom);
@@ -124,12 +120,7 @@ public class dungeonGen_V2 : MonoBehaviour
                         {
                             dungeonRoom chosenRoom = new dungeonRoom();
                             dungeonRoom roomResource = chooseRoom(x, y);
-                            chosenRoom.tag = roomResource.tag;
-                            chosenRoom.roomPrefab = roomResource.roomPrefab;
-                            chosenRoom.roomSize = roomResource.roomSize;
-                            chosenRoom.roomPos = roomResource.roomPos;
-                            chosenRoom.roomPos = new Vector3Int(x * cellSize, 0, y * cellSize);
-                            chosenRoom.roomCellCoord = new Vector2Int(x, y);
+                            copyRoomData(chosenRoom, roomResource, x, y);
                             occupyRoomPlacement(chosenRoom);
                             chosenRoom.gizmoColor = new Color(Random.Range(0f, 1), Random.Range(0f, 1), Random.Range(0f, 1), 0.3f);
                             rooms.Add(chosenRoom);
@@ -191,26 +182,6 @@ public class dungeonGen_V2 : MonoBehaviour
                         dungeonRoom nRoom = arena;
                         nRoom.objInWorld = nRoomObj;
                     }
-                }
-                if (activeRooms.Count > 75)
-                {
-                    dungeonSize = "Massive";
-                }
-                else if (activeRooms.Count > 50)
-                {
-                    dungeonSize = "Large";
-                }
-                else if (activeRooms.Count > 25)
-                {
-                    dungeonSize = "Medium";
-                }
-                else if (activeRooms.Count > 15)
-                {
-                    dungeonSize = "Small";
-                }
-                else if (activeRooms.Count < 15)
-                {
-                    dungeonSize = "Tiny";
                 }
                 step++;
                 generate(d);
@@ -330,6 +301,10 @@ public class dungeonGen_V2 : MonoBehaviour
             foreach (GameObject obj in activeWalls) { DestroyImmediate(obj); }
             foreach (GameObject obj in enemiesAlive) { DestroyImmediate(obj); }
         }
+        foreach(GameObject lootDrop in GameObject.FindGameObjectsWithTag("LootDrop"))
+        {
+            Destroy(lootDrop);
+        }
         cellsCreated = false;
         arenaPlacements.Clear();
         rooms.Clear();
@@ -338,6 +313,20 @@ public class dungeonGen_V2 : MonoBehaviour
         activeArenas.Clear();
         activeSpawnPoints.Clear();
         enemiesAlive.Clear();
+    }
+    public void copyRoomData(dungeonRoom newRoom, dungeonRoom original, int wherex, int wherey)
+    {
+        newRoom.tag = original.tag;
+        newRoom.roomPrefab = original.roomPrefab;
+        newRoom.roomSize = original.roomSize;
+        newRoom.roomPos = original.roomPos;
+        newRoom.roomPos = new Vector3Int(wherex * cellSize, 0, wherey * cellSize);
+        newRoom.roomCellCoord = new Vector2Int(wherex, wherey);
+        newRoom.type = original.type;
+        if(newRoom.type == roomType.arena)
+        {
+            newRoom.entryPoints = original.entryPoints;
+        }
     }
     public bool checkArenaPlacement(dungeonRoom arena, int originX, int originY)
     {
@@ -348,7 +337,7 @@ public class dungeonGen_V2 : MonoBehaviour
             {
                 if (cells[originX + x, originY + y].occupied == true || cells[originX + x, originY + y] == startCell || cells[originX + x, originY + y] == endCell) //check these cells in cells array if occupied or start/end
                 {
-                    count++; //cell is already occupied, restart loop
+                    count++; //cell is already occupied, will return false
                 }
 
             }
@@ -668,7 +657,7 @@ public class dungeonGen_V2 : MonoBehaviour
     }
     public void holdPlayerBetweenLevels()
     {
-        FPScharacterCtrl.canCtrl = false;
+        //FPScharacterCtrl.canCtrl = false;
         Debug.Log("holdplayer");
         playerManager.instance.player.GetComponent<Rigidbody>().useGravity = false;
     }
